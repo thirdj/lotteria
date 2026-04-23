@@ -92,3 +92,4 @@ npx vercel dev
 - 동행복권 공식 API: `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={회차}`
 - Vercel 무료 플랜으로도 완전히 동작합니다 (Edge Function 제한 없음)
 - API 장애 시 프론트엔드가 자동으로 데모 데이터 모드로 전환됩니다
+# lotteria

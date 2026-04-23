@@ -1,6 +1,6 @@
 // api/lotto-latest.js
-// 현재 최신 회차 번호를 찾아서 반환
-// Binary search로 빠르게 탐색
+// 최신 회차를 빠르게 찾아서 반환
+// 날짜 계산으로 예상 회차를 구한 뒤 병렬 요청 → 타임아웃 없음
 
 export const config = {
   runtime: 'edge',
@@ -15,10 +15,19 @@ async function fetchRound(round) {
         'User-Agent': 'Mozilla/5.0 (compatible; LottoProxy/1.0)',
         'Referer': 'https://www.dhlottery.co.kr',
       },
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const d = await res.json();
-    return d.returnValue === 'success' ? d.drwNo : null;
+    if (d.returnValue !== 'success') return null;
+    return {
+      latestRound: d.drwNo,
+      date: d.drwNoDate,
+      nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
+      bonus: d.bnusNo,
+      prize1: d.firstWinamnt,
+      cnt1: d.firstPrzwnerCo,
+    };
   } catch {
     return null;
   }
@@ -29,49 +38,30 @@ export default async function handler(req) {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
 
-  // 2025년 기준 약 1150회 → 넉넉하게 1100~1300 범위에서 탐색
-  let lo = 1100;
-  let hi = 1300;
+  // 날짜 계산으로 예상 최신 회차 산출 (1회 = 2002년 12월 7일)
+  const startDate = new Date('2002-12-07');
+  const now = new Date();
+  const weeksDiff = Math.floor((now - startDate) / (7 * 24 * 60 * 60 * 1000));
+  const estimatedRound = weeksDiff + 1;
 
-  // hi 경계 확장: hi가 존재하면 더 올림
-  while (await fetchRound(hi) !== null) {
-    lo = hi;
-    hi += 50;
-  }
+  // 예상 회차 ±3 범위를 동시에 병렬 요청
+  const candidates = [
+    estimatedRound + 2,
+    estimatedRound + 1,
+    estimatedRound,
+    estimatedRound - 1,
+    estimatedRound - 2,
+    estimatedRound - 3,
+  ];
 
-  // binary search
-  while (lo < hi - 1) {
-    const mid = Math.floor((lo + hi) / 2);
-    const result = await fetchRound(mid);
-    if (result !== null) lo = mid;
-    else hi = mid;
-  }
+  const results = await Promise.all(candidates.map(r => fetchRound(r)));
+  const valid = results.filter(Boolean).sort((a, b) => b.latestRound - a.latestRound);
 
-  const latestRound = lo;
-  const latestData = await fetchRound(latestRound);
-
-  if (!latestData) {
+  if (!valid.length) {
     return jsonResponse({ error: '최신 회차를 찾을 수 없습니다' }, 500);
   }
 
-  // 최신 회차 상세도 함께 반환
-  const res = await fetch(`${LOTTO_API}${latestRound}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.dhlottery.co.kr' },
-  });
-  const d = await res.json();
-
-  return jsonResponse(
-    {
-      latestRound,
-      date: d.drwNoDate,
-      nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
-      bonus: d.bnusNo,
-      prize1: d.firstWinamnt,
-      cnt1: d.firstPrzwnerCo,
-    },
-    200,
-    1800 // 30분 캐시 (새 회차 반영 고려)
-  );
+  return jsonResponse(valid[0], 200, 1800);
 }
 
 function corsHeaders() {

@@ -4,6 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LOTTO 6/45 — 번호 분석기</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f7c948">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="로또분석기">
+
+<!-- 파비콘 -->
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png">
+
+<!-- 아이폰 홈화면 아이콘 -->
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+
+<!-- 아이폰 스플래시 (기본) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -390,8 +409,119 @@
   .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
   .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
 
-  /* Progress bar for initial load */
-  #loadProgress {
+  /* Splash Screen */
+  #splash {
+    position: fixed;
+    inset: 0;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+
+  #splash.hidden { opacity: 0; visibility: hidden; }
+
+  .splash-logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 3rem;
+    background: linear-gradient(135deg, #f7c948, #e84393);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    animation: splashPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes splashPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .splash-balls {
+    display: flex;
+    gap: 10px;
+    margin: 24px 0;
+  }
+
+  .splash-ball {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    animation: splashBounce 1s ease-in-out infinite;
+  }
+
+  .splash-ball:nth-child(1) { background: radial-gradient(circle at 35% 35%, #ffe86a, #d4a800); animation-delay: 0s; }
+  .splash-ball:nth-child(2) { background: radial-gradient(circle at 35% 35%, #72c8ff, #1a7cc7); animation-delay: 0.1s; }
+  .splash-ball:nth-child(3) { background: radial-gradient(circle at 35% 35%, #ff8080, #c42020); animation-delay: 0.2s; }
+  .splash-ball:nth-child(4) { background: radial-gradient(circle at 35% 35%, #d8d8e8, #8888aa); animation-delay: 0.3s; }
+  .splash-ball:nth-child(5) { background: radial-gradient(circle at 35% 35%, #a0d878, #3a8a20); animation-delay: 0.4s; }
+  .splash-ball:nth-child(6) { background: radial-gradient(circle at 35% 35%, #e088ff, #8820cc); animation-delay: 0.5s; }
+
+  @keyframes splashBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .splash-sub {
+    color: #8888aa;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* AI Button */
+  .btn-ai {
+    background: linear-gradient(135deg, #e84393, #8820cc);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-ai::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #ff5aa8, #aa40ee);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn-ai:hover::before { opacity: 1; }
+  .btn-ai:hover { transform: translateY(-1px); }
+  .btn-ai span { position: relative; z-index: 1; }
+
+  /* AI reason box */
+  .ai-reason {
+    background: linear-gradient(135deg, rgba(232,67,147,0.1), rgba(136,32,204,0.1));
+    border: 1px solid rgba(232,67,147,0.3);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+
+  .ai-reason strong { color: var(--accent2); display: block; margin-bottom: 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .ai-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: var(--accent2);
+    font-size: 0.9rem;
+  }
+
+  .spinner-ai {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(232,67,147,0.2);
+    border-top-color: var(--accent2);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
     position: fixed;
     top: 0; left: 0;
     height: 3px;
@@ -433,6 +563,20 @@
 <body>
 <div id="loadProgress"></div>
 <div id="toast"></div>
+
+<!-- 스플래시 스크린 -->
+<div id="splash">
+  <div class="splash-logo">LOTTO 6/45</div>
+  <div class="splash-balls">
+    <div class="splash-ball"></div>
+    <div class="splash-ball"></div>
+    <div class="splash-ball"></div>
+    <div class="splash-ball"></div>
+    <div class="splash-ball"></div>
+    <div class="splash-ball"></div>
+  </div>
+  <div class="splash-sub">빅데이터 번호 분석기</div>
+</div>
 
 <div class="container">
   <header>
@@ -480,6 +624,7 @@
       </select>
 
       <button class="btn btn-primary" onclick="generateNumbers()" style="margin-left:auto">🎲 번호 생성</button>
+      <button class="btn btn-ai" onclick="generateAINumbers()"><span>🤖 AI 번호</span></button>
       <button class="btn btn-secondary" onclick="saveMyPicks()">⭐ 내 번호에 저장</button>
     </div>
 
@@ -990,6 +1135,212 @@ function renderMyPicks() {
 }
 
 // ============================================================
+// AI NUMBER GENERATION (순수 로컬 분석 알고리즘)
+// ============================================================
+
+function generateAINumbers() {
+  const el = document.getElementById('generatedSets');
+
+  if (!allDraws.length) { showToast('데이터 로드 중입니다.'); return; }
+
+  // 로딩 표시 (분석 느낌)
+  el.innerHTML = '<div class="ai-loading"><div class="spinner-ai"></div> 패턴 분석 중...</div>';
+
+  setTimeout(() => {
+    try {
+      const draws52  = allDraws.slice(0, 52);   // 1년
+      const draws104 = allDraws.slice(0, 104);  // 2년
+      const draws10  = allDraws.slice(0, 10);   // 최근 10회
+
+      const freq52  = calcFrequency(draws52);
+      const freq104 = calcFrequency(draws104);
+
+      // 최근 10회 출현 번호 (HOT)
+      const recent10Set = new Set();
+      draws10.forEach(d => d.nums.forEach(n => recent10Set.add(n)));
+
+      // 최근 10회 미출현 번호 (COLD — 오래 안 나온 번호)
+      const cold = Array.from({length:45}, (_,i)=>i+1).filter(n => !recent10Set.has(n));
+
+      const sets = [];
+      const reasons = [];
+
+      // ── 전략 1: HOT 위주 (최근 자주 나온 번호)
+      const hot = Object.entries(freq52).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([n])=>parseInt(n));
+      sets.push(smartPick(hot, freq52, 'hot'));
+      reasons.push('최근 1년 최다 출현 번호 위주');
+
+      // ── 전략 2: COLD 위주 (오래 안 나온 번호 — 과거 복귀 패턴)
+      const coldSorted = [...cold].sort((a,b) => freq52[a]-freq52[b]);
+      const coldPool = [...coldSorted.slice(0,12), ...hot.slice(0,10)];
+      sets.push(smartPick(coldPool, freq52, 'cold'));
+      reasons.push('미출현 번호 + HOT 번호 혼합');
+
+      // ── 전략 3: 구간 균등 (1-10, 11-20, 21-30, 31-40, 41-45 각 1~2개)
+      sets.push(zonePick(freq52));
+      reasons.push('5구간 균등 분산 조합');
+
+      // ── 전략 4: 홀짝 3:3 + 합계 최적 (100~175)
+      sets.push(balancedPick(freq52, freq104));
+      reasons.push('홀짝 3:3 균형 + 합계 최적 범위');
+
+      // ── 전략 5: 장기 빈도 기반 (전체 2년 데이터)
+      const hot104 = Object.entries(freq104).sort((a,b)=>b[1]-a[1]).slice(0,22).map(([n])=>parseInt(n));
+      sets.push(smartPick(hot104, freq104, 'long'));
+      reasons.push('2년 장기 빈도 분석 기반');
+
+      currentSets = sets;
+
+      // 분석 요약
+      const topNums = Object.entries(freq52).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,f])=>`${n}번(${f}회)`).join(', ');
+      const avgSum = Math.round(sets.reduce((s,nums)=>s+nums.reduce((a,b)=>a+b,0),0)/sets.length);
+
+      let html = `
+        <div class="ai-reason">
+          <strong>🤖 AI 분석 근거</strong>
+          최근 1년 HOT번호: ${topNums}<br>
+          냉동번호 ${cold.length}개 감지 · 5가지 전략 조합 · 평균 합계 ${avgSum}
+        </div>
+      `;
+
+      html += sets.map((nums, i) => `
+        <div class="set-card" style="border-color:rgba(232,67,147,0.3)">
+          <div class="set-num" style="color:var(--accent2);font-size:0.7rem">AI ${String(i+1).padStart(2,'0')}<br><span style="color:var(--text2);font-size:0.62rem">${reasons[i]}</span></div>
+          <div class="balls-row">
+            ${nums.map(n => `<div class="ball ${ballClass(n)}">${n}</div>`).join('')}
+          </div>
+          <div id="aiwin-${i}" class="win-badge win-pending">확인 전</div>
+        </div>
+      `).join('');
+
+      el.innerHTML = html;
+
+      // 최신 결과와 비교
+      if (allDraws.length > 0) {
+        const latest = allDraws[0];
+        sets.forEach((nums, i) => {
+          const { rank } = checkWin(nums, latest.nums, latest.bonus);
+          const badge = document.getElementById(`aiwin-${i}`);
+          if (badge) {
+            badge.className = `win-badge win-${rank === 0 ? 'none' : rank}`;
+            badge.textContent = rank === 0 ? '낙첨' : `${rank}등 🎉`;
+          }
+        });
+      }
+
+      showToast('🤖 AI 분석 완료!');
+    } catch(e) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><div>${e.message}</div></div>`;
+    }
+  }, 600); // 분석 느낌을 위한 약간의 딜레이
+}
+
+// 가중치 기반 스마트 픽 (구간 분산 보정 포함)
+function smartPick(pool, freq, mode) {
+  let attempts = 0;
+  while (attempts++ < 500) {
+    const nums = [];
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+
+    for (const n of shuffled) {
+      if (nums.length >= 6) break;
+      // 같은 구간에 3개 이상 몰리면 스킵
+      const zone = Math.ceil(n / 10);
+      const zoneCount = nums.filter(x => Math.ceil(x/10) === zone).length;
+      if (zoneCount >= 3) continue;
+      nums.push(n);
+    }
+
+    if (nums.length < 6) {
+      // 부족하면 아무거나 채우기
+      for (let n = 1; n <= 45 && nums.length < 6; n++) {
+        if (!nums.includes(n)) nums.push(n);
+      }
+    }
+
+    const sorted = nums.sort((a,b)=>a-b);
+    const sum = sorted.reduce((a,b)=>a+b,0);
+    // 합계 90~185 범위면 채택
+    if (sum >= 90 && sum <= 185) return sorted;
+  }
+  // fallback
+  return pickRandom(45, 6).sort((a,b)=>a-b);
+}
+
+// 구간 균등 픽 (각 구간에서 1~2개)
+function zonePick(freq) {
+  const zones = [
+    Array.from({length:10}, (_,i)=>i+1),   // 1-10
+    Array.from({length:10}, (_,i)=>i+11),  // 11-20
+    Array.from({length:10}, (_,i)=>i+21),  // 21-30
+    Array.from({length:10}, (_,i)=>i+31),  // 31-40
+    Array.from({length:5},  (_,i)=>i+41),  // 41-45
+  ];
+
+  let attempts = 0;
+  while (attempts++ < 200) {
+    const nums = [];
+    // 각 구간에서 빈도 가중치로 1개씩 (5구간 → 5개)
+    for (const zone of zones) {
+      const sorted = [...zone].sort((a,b) => (freq[b]||0) - (freq[a]||0));
+      const topN = sorted.slice(0, Math.ceil(sorted.length * 0.6));
+      const pick = topN[Math.floor(Math.random() * topN.length)];
+      if (!nums.includes(pick)) nums.push(pick);
+    }
+    // 6번째 번호: 빈도 높은 번호 중 미선택
+    const remaining = Array.from({length:45},(_,i)=>i+1)
+      .filter(n=>!nums.includes(n))
+      .sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+    nums.push(remaining[Math.floor(Math.random() * Math.min(10, remaining.length))]);
+
+    const sorted = nums.sort((a,b)=>a-b);
+    const sum = sorted.reduce((a,b)=>a+b,0);
+    if (sum >= 90 && sum <= 185) return sorted;
+  }
+  return pickRandom(45,6).sort((a,b)=>a-b);
+}
+
+// 홀짝 균형 + 합계 최적 픽
+function balancedPick(freq52, freq104) {
+  let attempts = 0;
+  while (attempts++ < 500) {
+    // 빈도 가중치 샘플링
+    const all = Array.from({length:45},(_,i)=>i+1);
+    const scored = all.map(n => ({
+      n,
+      w: (freq52[n]||0) * 2 + (freq104[n]||0),
+    }));
+    const totalW = scored.reduce((s,x)=>s+x.w, 0);
+
+    const nums = [];
+    const usedIdx = new Set();
+
+    while (nums.length < 6) {
+      let rand = Math.random() * totalW;
+      for (let i = 0; i < scored.length; i++) {
+        rand -= scored[i].w;
+        if (rand <= 0 && !usedIdx.has(i)) {
+          usedIdx.add(i);
+          nums.push(scored[i].n);
+          break;
+        }
+      }
+      if (nums.length > 20) break; // 무한루프 방지
+    }
+
+    if (nums.length < 6) continue;
+
+    const sorted = nums.sort((a,b)=>a-b);
+    const odd = sorted.filter(n=>n%2===1).length;
+    const sum = sorted.reduce((a,b)=>a+b,0);
+
+    // 홀짝 2:4 ~ 4:2, 합계 95~180
+    if (odd >= 2 && odd <= 4 && sum >= 95 && sum <= 180) return sorted;
+  }
+  return pickRandom(45,6).sort((a,b)=>a-b);
+}
+
+// ============================================================
 // UI HELPERS
 // ============================================================
 
@@ -1034,6 +1385,11 @@ async function init() {
     showToast('⚠️ 데모 데이터 사용 중 (API 서버 배포 필요)');
     setProgress(100);
   }
+
+  // 스플래시 숨기기
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hidden');
+  }, 800);
 }
 
 init();

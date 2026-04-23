@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOTTO 6/45 — 번호 분석기</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3d;
+    --accent: #f7c948;
+    --accent2: #e84393;
+    --accent3: #3de6c8;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(247,201,72,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(247,201,72,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+  header {
+    padding: 32px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo span {
+    font-size: 1rem;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text2);
+    font-weight: 300;
+    display: block;
+    -webkit-text-fill-color: var(--text2);
+    margin-top: -4px;
+  }
+
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+  .next-draw {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text2);
+  }
+
+  .next-draw strong { display: block; font-size: 1.1rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+  .data-status {
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text2);
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #555;
+    flex-shrink: 0;
+  }
+
+  .dot.live { background: #3de6c8; box-shadow: 0 0 6px #3de6c8; animation: pulse 2s infinite; }
+  .dot.demo { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.err  { background: var(--accent2); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .tab.active { background: var(--accent); color: #000; font-weight: 700; }
+  .tab:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .settings-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+
+  .settings-row label { font-size: 0.8rem; color: var(--text2); margin-right: 4px; }
+
+  .settings-row select, .settings-row input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .settings-row select:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #ffd666; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Balls */
+  .ball {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    position: relative;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  .ball::after {
+    content: '';
+    position: absolute;
+    top: 5px; left: 8px;
+    width: 10px; height: 6px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 50%;
+    transform: rotate(-30deg);
+  }
+
+  .ball-sm { width: 32px; height: 32px; font-size: 0.8rem; }
+  .ball-lg { width: 52px; height: 52px; font-size: 1.1rem; }
+
+  .ball.b1  { background: radial-gradient(circle at 35% 35%, #ffe86a, #d4a800); color: #000; }
+  .ball.b2  { background: radial-gradient(circle at 35% 35%, #72c8ff, #1a7cc7); color: #fff; }
+  .ball.b3  { background: radial-gradient(circle at 35% 35%, #ff8080, #c42020); color: #fff; }
+  .ball.b4  { background: radial-gradient(circle at 35% 35%, #d8d8e8, #8888aa); color: #000; }
+  .ball.b5  { background: radial-gradient(circle at 35% 35%, #a0d878, #3a8a20); color: #fff; }
+  .ball.bonus { background: radial-gradient(circle at 35% 35%, #e088ff, #8820cc); color: #fff; }
+
+  /* Set cards */
+  .set-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    transition: border-color 0.2s;
+    animation: slideIn 0.3s ease forwards;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .set-card:hover { border-color: var(--accent); }
+
+  .set-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text2);
+    min-width: 32px;
+  }
+
+  .balls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .win-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .win-1 { background: #f7c948; color: #000; }
+  .win-2 { background: #c0c0d0; color: #000; }
+  .win-3 { background: #cd7f32; color: #fff; }
+  .win-4 { background: var(--surface2); color: var(--accent3); border: 1px solid var(--accent3); }
+  .win-5 { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .win-none { background: var(--surface2); color: #555; border: 1px solid #333; }
+  .win-pending { background: var(--surface2); color: var(--text2); border: 1px dashed var(--border); }
+
+  /* Frequency */
+  .freq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .freq-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .freq-item:hover { transform: scale(1.1); }
+
+  .freq-bar-wrap {
+    width: 32px;
+    height: 60px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    border: 1px solid var(--border);
+  }
+
+  .freq-bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--accent), #c49a00);
+    border-radius: 3px 3px 0 0;
+    transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .freq-count { font-size: 0.65rem; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+
+  /* History */
+  .history-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 4px;
+    font-size: 0.85rem;
+  }
+
+  .history-table th {
+    color: var(--text2);
+    font-weight: 500;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .history-table td {
+    padding: 10px 12px;
+    background: var(--surface);
+    vertical-align: middle;
+  }
+
+  .history-table tr td:first-child { border-radius: 8px 0 0 8px; }
+  .history-table tr td:last-child { border-radius: 0 8px 8px 0; }
+  .history-table tr:hover td { background: var(--surface2); }
+
+  .round-num { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .stat-card .val { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .stat-card .lbl { font-size: 0.75rem; color: var(--text2); margin-top: 4px; }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--text2);
+  }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+  /* Progress bar for initial load */
+  #loadProgress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    z-index: 9999;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    z-index: 9999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    .logo { font-size: 1.8rem; }
+    .set-card { padding: 14px; }
+    .ball { width: 34px; height: 34px; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<div id="loadProgress"></div>
+<div id="toast"></div>
+
+<div class="container">
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        LOTTO 6/45
+        <span>빅데이터 번호 분석기</span>
+      </div>
+      <div class="header-right">
+        <div class="next-draw">
+          <strong id="nextDrawDate">로딩 중...</strong>
+          다음 추첨일
+        </div>
+        <div class="data-status">
+          <div class="dot" id="statusDot"></div>
+          <span id="statusText">데이터 로드 중...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('generate', this)">🎰 번호 생성</button>
+    <button class="tab" onclick="switchTab('frequency', this)">📊 빈도 분석</button>
+    <button class="tab" onclick="switchTab('history', this)">📋 최근 당첨</button>
+    <button class="tab" onclick="switchTab('mypicks', this)">⭐ 내 번호</button>
+  </div>
+
+  <!-- GENERATE -->
+  <div id="panel-generate" class="panel active">
+    <div class="settings-row">
+      <label>분석 기간</label>
+      <select id="periodSelect">
+        <option value="52">최근 1년 (52회)</option>
+        <option value="104">최근 2년 (104회)</option>
+        <option value="156">최근 3년 (156회)</option>
+        <option value="260">최근 5년 (260회)</option>
+        <option value="all">전체 회차</option>
+      </select>
+
+      <label style="margin-left:12px">세트 수</label>
+      <select id="setCount">
+        <option value="5">5세트</option>
+        <option value="10" selected>10세트</option>
+      </select>
+
+      <button class="btn btn-primary" onclick="generateNumbers()" style="margin-left:auto">🎲 번호 생성</button>
+      <button class="btn btn-secondary" onclick="saveMyPicks()">⭐ 내 번호에 저장</button>
+    </div>
+
+    <div class="section-title">생성된 추천 번호</div>
+    <div id="generatedSets">
+      <div class="empty-state">
+        <div class="icon">🎯</div>
+        <div>위 버튼을 눌러 빈도 기반 번호를 생성하세요</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FREQUENCY -->
+  <div id="panel-frequency" class="panel">
+    <div class="settings-row">
+      <label>분석 기간</label>
+      <select id="freqPeriodSelect" onchange="renderFrequency()">
+        <option value="52">최근 1년</option>
+        <option value="104">최근 2년</option>
+        <option value="156">최근 3년</option>
+        <option value="260">최근 5년</option>
+        <option value="all">전체</option>
+      </select>
+      <label style="margin-left:12px">정렬</label>
+      <select id="freqSortSelect" onchange="renderFrequency()">
+        <option value="num">번호순</option>
+        <option value="freq">빈도순</option>
+      </select>
+    </div>
+
+    <div class="stats-grid" id="freqStats"></div>
+    <div class="section-title">번호별 출현 빈도</div>
+    <div id="freqChart" class="freq-grid"></div>
+    <div class="section-title">HOT 번호 TOP 10</div>
+    <div id="topNumbers" class="balls-row" style="margin-bottom:24px; flex-wrap:wrap; gap:8px;"></div>
+    <div class="section-title">COLD 번호 (냉동 번호)</div>
+    <div id="coldNumbers" class="balls-row" style="flex-wrap:wrap; gap:8px;"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="panel-history" class="panel">
+    <div class="settings-row">
+      <label>표시 회차 수</label>
+      <select id="historyCount" onchange="renderHistory()">
+        <option value="20">최근 20회</option>
+        <option value="52" selected>최근 52회 (1년)</option>
+        <option value="104">최근 104회 (2년)</option>
+      </select>
+    </div>
+    <div id="historyTable">
+      <div class="loading"><div class="spinner"></div> 데이터 로드 중...</div>
+    </div>
+  </div>
+
+  <!-- MY PICKS -->
+  <div id="panel-mypicks" class="panel">
+    <div class="settings-row">
+      <span style="font-size:0.85rem; color:var(--text2)">저장된 번호를 추첨 결과와 비교합니다</span>
+      <button class="btn btn-secondary" style="margin-left:auto" onclick="clearMyPicks()">전체 삭제</button>
+      <button class="btn btn-primary" onclick="checkAllMyPicks()">🔍 당첨 확인</button>
+    </div>
+    <div id="myPicksList"></div>
+  </div>
+</div>
+
+<div style="height:60px"></div>
+
+<script>
+// ============================================================
+// CONFIG — 배포 후 자동으로 같은 도메인 /api/ 를 사용
+// ============================================================
+const API_BASE = ''; // 같은 도메인 → 빈 문자열이면 상대경로
+
+const CACHE_KEY = 'lotto_v4';
+const CACHE_TTL = 3600 * 1000;
+
+let allDraws = [];
+let latestRound = 0;
+let dataMode = 'loading'; // 'live' | 'demo' | 'error'
+
+// ============================================================
+// DATA LAYER
+// ============================================================
+
+async function apiFetch(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function loadData() {
+  // 캐시 확인
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < CACHE_TTL && cached.draws?.length > 0) {
+      allDraws = cached.draws;
+      latestRound = allDraws[0].round;
+      dataMode = cached.mode || 'live';
+      return;
+    }
+  } catch(e) {}
+
+  setProgress(10);
+
+  // 1) 최신 회차 확인
+  let latest;
+  try {
+    latest = await apiFetch('/api/lotto-latest');
+    latestRound = latest.latestRound;
+  } catch(e) {
+    throw new Error('latest API fail');
+  }
+
+  setProgress(25);
+
+  // 2) 최근 300회 배치 로드 (3배치 × 100회)
+  const BATCH_SIZE = 100;
+  const batches = [];
+  for (let i = 0; i < 3; i++) {
+    const to = latestRound - i * BATCH_SIZE;
+    const from = Math.max(1, to - BATCH_SIZE + 1);
+    batches.push({ from, to });
+  }
+
+  const results = await Promise.allSettled(
+    batches.map(({ from, to }) =>
+      apiFetch(`/api/lotto-batch?from=${from}&to=${to}`)
+    )
+  );
+
+  setProgress(80);
+
+  let draws = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.draws) {
+      draws.push(...r.value.draws);
+    }
+  }
+
+  // 최신 데이터도 추가 (lotto-latest에서 받아온 것)
+  if (latest) {
+    const alreadyIn = draws.find(d => d.round === latest.latestRound);
+    if (!alreadyIn) {
+      draws.push({
+        round: latest.latestRound,
+        date: latest.date,
+        nums: latest.nums,
+        bonus: latest.bonus,
+        prize1: latest.prize1,
+        cnt1: latest.cnt1,
+      });
+    }
+  }
+
+  draws = draws.filter(Boolean).sort((a, b) => b.round - a.round);
+
+  if (draws.length === 0) throw new Error('no draws');
+
+  allDraws = draws;
+  dataMode = 'live';
+
+  setProgress(100);
+
+  // 캐시 저장
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), draws, mode: 'live' }));
+  } catch(e) {}
+}
+
+function generateFallbackData() {
+  const draws = [];
+  const now = new Date();
+  for (let i = 0; i < 260; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    const nums = pickRandom(45, 6).sort((a, b) => a - b);
+    const pool = Array.from({length:45}, (_,j) => j+1).filter(n => !nums.includes(n));
+    draws.push({
+      round: 1150 - i,
+      date: d.toISOString().slice(0,10),
+      nums,
+      bonus: pool[Math.floor(Math.random() * pool.length)],
+      prize1: Math.floor(Math.random() * 3e9 + 1e9),
+      cnt1: Math.floor(Math.random() * 10 + 1),
+    });
+  }
+  return draws.sort((a, b) => b.round - a.round);
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+
+function pickRandom(max, count) {
+  const pool = Array.from({length: max}, (_, i) => i + 1);
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(Math.random() * (pool.length - i)) + i;
+    [pool[i], pool[idx]] = [pool[idx], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+function ballClass(n) {
+  if (n <= 10) return 'b1';
+  if (n <= 20) return 'b2';
+  if (n <= 30) return 'b3';
+  if (n <= 40) return 'b4';
+  return 'b5';
+}
+
+function getDrawsForPeriod(val) {
+  return val === 'all' ? allDraws : allDraws.slice(0, parseInt(val));
+}
+
+function calcFrequency(draws) {
+  const freq = {};
+  for (let i = 1; i <= 45; i++) freq[i] = 0;
+  for (const d of draws) for (const n of d.nums) freq[n]++;
+  return freq;
+}
+
+function checkWin(myNums, winNums, bonus) {
+  const matched = myNums.filter(n => winNums.includes(n)).length;
+  const hasBonus = myNums.includes(bonus);
+  let rank = 0;
+  if (matched === 6) rank = 1;
+  else if (matched === 5 && hasBonus) rank = 2;
+  else if (matched === 5) rank = 3;
+  else if (matched === 4) rank = 4;
+  else if (matched === 3) rank = 5;
+  return { rank, matched };
+}
+
+function getNextSaturday() {
+  const now = new Date();
+  const day = now.getDay();
+  const daysUntil = (6 - day + 7) % 7 || 7;
+  const next = new Date(now);
+  next.setDate(now.getDate() + daysUntil);
+  const y = next.getFullYear();
+  const m = String(next.getMonth()+1).padStart(2,'0');
+  const dd = String(next.getDate()).padStart(2,'0');
+  if (day === 6 && (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 35))) {
+    return '오늘 20:35 추첨! 🔴';
+  }
+  return `${y}.${m}.${dd} (토) 20:35`;
+}
+
+// ============================================================
+// STATUS INDICATOR
+// ============================================================
+
+function setStatus(mode, round) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = 'dot ' + mode;
+  if (mode === 'live') text.textContent = `실시간 데이터 · 최신 ${round}회`;
+  else if (mode === 'demo') text.textContent = '데모 데이터 (API 연결 필요)';
+  else text.textContent = 'API 연결 오류';
+}
+
+function setProgress(pct) {
+  document.getElementById('loadProgress').style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => {
+    document.getElementById('loadProgress').style.opacity = '0';
+  }, 400);
+}
+
+// ============================================================
+// GENERATE TAB
+// ============================================================
+
+let currentSets = [];
+
+function generateNumbers() {
+  const period = document.getElementById('periodSelect').value;
+  const count = parseInt(document.getElementById('setCount').value);
+  const draws = getDrawsForPeriod(period);
+
+  if (!draws.length) { showToast('데이터 로드 중입니다.'); return; }
+
+  const freq = calcFrequency(draws);
+  currentSets = [];
+
+  for (let i = 0; i < count; i++) {
+    currentSets.push(generateWeightedSet(freq));
+  }
+
+  renderGeneratedSets(currentSets);
+}
+
+function generateWeightedSet(freq) {
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+  const pool = sorted.slice(0, 30).map(([n, w]) => ({ n: parseInt(n), w: w + 1 }));
+  const totalW = pool.reduce((s, x) => s + x.w, 0);
+
+  const picked = [];
+  const used = new Set();
+  let attempts = 0;
+
+  while (picked.length < 6 && attempts < 2000) {
+    attempts++;
+    let rand = Math.random() * totalW;
+    for (let i = 0; i < pool.length; i++) {
+      rand -= pool[i].w;
+      if (rand <= 0 && !used.has(i)) { used.add(i); picked.push(pool[i].n); break; }
+    }
+  }
+
+  while (picked.length < 6) {
+    const r = Math.floor(Math.random() * 45) + 1;
+    if (!picked.includes(r)) picked.push(r);
+  }
+
+  return picked.sort((a, b) => a - b);
+}
+
+function renderGeneratedSets(sets) {
+  const el = document.getElementById('generatedSets');
+  if (!sets.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🎯</div><div>번호를 생성해보세요</div></div>';
+    return;
+  }
+
+  el.innerHTML = sets.map((nums, i) => `
+    <div class="set-card">
+      <div class="set-num">SET ${String(i+1).padStart(2,'0')}</div>
+      <div class="balls-row">
+        ${nums.map(n => `<div class="ball ${ballClass(n)}">${n}</div>`).join('')}
+      </div>
+      <div id="win-${i}" class="win-badge win-pending">확인 전</div>
+    </div>
+  `).join('');
+
+  if (allDraws.length > 0) {
+    const latest = allDraws[0];
+    sets.forEach((nums, i) => {
+      const { rank } = checkWin(nums, latest.nums, latest.bonus);
+      const badge = document.getElementById(`win-${i}`);
+      if (badge) {
+        badge.className = `win-badge win-${rank === 0 ? 'none' : rank}`;
+        badge.textContent = rank === 0 ? '낙첨' : `${rank}등 🎉`;
+      }
+    });
+  }
+}
+
+// ============================================================
+// FREQUENCY TAB
+// ============================================================
+
+function renderFrequency() {
+  const period = document.getElementById('freqPeriodSelect').value;
+  const sort = document.getElementById('freqSortSelect').value;
+  const draws = getDrawsForPeriod(period);
+  const freq = calcFrequency(draws);
+
+  const vals = Object.values(freq);
+  const maxF = Math.max(...vals);
+  const minF = Math.min(...vals);
+  const avgF = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+
+  document.getElementById('freqStats').innerHTML = `
+    <div class="stat-card"><div class="val">${draws.length}</div><div class="lbl">분석 회차</div></div>
+    <div class="stat-card"><div class="val">${draws.length*6}</div><div class="lbl">총 추첨 번호</div></div>
+    <div class="stat-card"><div class="val">${maxF}</div><div class="lbl">최다 출현</div></div>
+    <div class="stat-card"><div class="val">${minF}</div><div class="lbl">최소 출현</div></div>
+    <div class="stat-card"><div class="val">${avgF}</div><div class="lbl">평균 출현</div></div>
+  `;
+
+  let entries = Object.entries(freq).map(([n, f]) => ({ n: parseInt(n), f }));
+  if (sort === 'freq') entries.sort((a, b) => b.f - a.f);
+  else entries.sort((a, b) => a.n - b.n);
+
+  document.getElementById('freqChart').innerHTML = entries.map(({ n, f }) => `
+    <div class="freq-item" title="${n}번: ${f}회">
+      <div class="freq-bar-wrap">
+        <div class="freq-bar" style="height:${Math.round((f/maxF)*100)}%"></div>
+      </div>
+      <div class="ball ball-sm ${ballClass(n)}">${n}</div>
+      <div class="freq-count">${f}</div>
+    </div>
+  `).join('');
+
+  const sorted = [...entries].sort((a, b) => b.f - a.f);
+  document.getElementById('topNumbers').innerHTML =
+    sorted.slice(0,10).map(({ n }) => `<div class="ball ball-lg ${ballClass(n)}">${n}</div>`).join('');
+  document.getElementById('coldNumbers').innerHTML =
+    sorted.slice(-10).reverse().map(({ n }) => `<div class="ball ball-lg ${ballClass(n)}">${n}</div>`).join('');
+}
+
+// ============================================================
+// HISTORY TAB
+// ============================================================
+
+function renderHistory() {
+  const count = parseInt(document.getElementById('historyCount').value);
+  const draws = allDraws.slice(0, count);
+
+  if (!draws.length) {
+    document.getElementById('historyTable').innerHTML =
+      '<div class="loading"><div class="spinner"></div> 데이터 로드 중...</div>';
+    return;
+  }
+
+  const rows = draws.map(d => `
+    <tr>
+      <td><span class="round-num">${d.round}회</span></td>
+      <td style="color:var(--text2);font-size:0.8rem">${d.date}</td>
+      <td>
+        <div class="balls-row">
+          ${d.nums.map(n => `<div class="ball ball-sm ${ballClass(n)}">${n}</div>`).join('')}
+          <span style="color:var(--text2);font-size:0.8rem;margin:0 4px">+</span>
+          <div class="ball ball-sm bonus">${d.bonus}</div>
+        </div>
+      </td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--accent);text-align:right">
+        ${d.prize1 ? '₩' + d.prize1.toLocaleString() : '—'}
+      </td>
+      <td style="font-size:0.75rem;color:var(--text2);text-align:right">${d.cnt1 != null ? d.cnt1 + '명' : '—'}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('historyTable').innerHTML = `
+    <div style="overflow-x:auto">
+    <table class="history-table">
+      <thead><tr>
+        <th>회차</th><th>날짜</th><th>당첨 번호 (+ 보너스)</th>
+        <th style="text-align:right">1등 당첨금</th>
+        <th style="text-align:right">1등 인원</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  `;
+}
+
+// ============================================================
+// MY PICKS TAB
+// ============================================================
+
+function getMyPicks() {
+  try { return JSON.parse(localStorage.getItem('my_picks_v2') || '[]'); } catch { return []; }
+}
+
+function saveMyPicks() {
+  if (!currentSets.length) { showToast('먼저 번호를 생성해주세요!'); return; }
+  const existing = getMyPicks();
+  const now = new Date().toISOString().slice(0,10);
+  const merged = [...currentSets.map(nums => ({ nums, saved: now, checked: null })), ...existing].slice(0, 50);
+  localStorage.setItem('my_picks_v2', JSON.stringify(merged));
+  showToast(`${currentSets.length}세트 저장 완료!`);
+}
+
+function clearMyPicks() {
+  if (!confirm('저장된 번호를 모두 삭제할까요?')) return;
+  localStorage.removeItem('my_picks_v2');
+  renderMyPicks();
+}
+
+function deletePick(idx) {
+  const picks = getMyPicks();
+  picks.splice(idx, 1);
+  localStorage.setItem('my_picks_v2', JSON.stringify(picks));
+  renderMyPicks();
+}
+
+function checkAllMyPicks() {
+  const picks = getMyPicks();
+  if (!picks.length) return;
+  if (!allDraws.length) { showToast('당첨 데이터를 로드 중입니다.'); return; }
+
+  const latest = allDraws[0];
+  const updated = picks.map(p => {
+    const { rank } = checkWin(p.nums, latest.nums, latest.bonus);
+    return { ...p, checked: rank };
+  });
+
+  localStorage.setItem('my_picks_v2', JSON.stringify(updated));
+  renderMyPicks();
+  showToast(`${latest.round}회 결과로 당첨 확인 완료!`);
+}
+
+function renderMyPicks() {
+  const picks = getMyPicks();
+  const el = document.getElementById('myPicksList');
+
+  if (!picks.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⭐</div><div>저장된 번호가 없습니다.<br>번호 생성 탭에서 생성 후 저장해보세요.</div></div>`;
+    return;
+  }
+
+  el.innerHTML = picks.map((p, i) => {
+    const r = p.checked;
+    const badgeHtml = r === null
+      ? `<div class="win-badge win-pending">미확인</div>`
+      : `<div class="win-badge win-${r === 0 ? 'none' : r}">${r === 0 ? '낙첨' : r + '등 🎉'}</div>`;
+    return `
+      <div class="set-card">
+        <div class="set-num" style="font-size:0.7rem;color:var(--text2)">${p.saved}<br>SET ${String(i+1).padStart(2,'0')}</div>
+        <div class="balls-row">
+          ${p.nums.map(n => `<div class="ball ${ballClass(n)}">${n}</div>`).join('')}
+        </div>
+        ${badgeHtml}
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.75rem" onclick="deletePick(${i})">삭제</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+
+  if (name === 'frequency') renderFrequency();
+  if (name === 'history') renderHistory();
+  if (name === 'mypicks') renderMyPicks();
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+async function init() {
+  document.getElementById('nextDrawDate').textContent = getNextSaturday();
+
+  try {
+    await loadData();
+    setStatus('live', latestRound);
+    document.getElementById('nextDrawDate').textContent =
+      `최신 ${allDraws[0].round}회 완료 | ${getNextSaturday()}`;
+  } catch(e) {
+    console.warn('API 실패, 데모 모드 전환:', e.message);
+    allDraws = generateFallbackData();
+    latestRound = allDraws[0].round;
+    dataMode = 'demo';
+    setStatus('demo', latestRound);
+    showToast('⚠️ 데모 데이터 사용 중 (API 서버 배포 필요)');
+    setProgress(100);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "lotto-proxy",
+  "version": "1.0.0",
+  "description": "Lotto 6/45 API Proxy for Vercel",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}

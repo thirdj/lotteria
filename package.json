@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Lotto 6/45 API Proxy for Vercel",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vercel dev"
   },

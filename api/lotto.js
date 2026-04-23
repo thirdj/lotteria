@@ -1,49 +1,43 @@
-// api/lotto.js
-// Node.js Runtime
+// api/lotto.js — Supabase에서 단일 회차 조회
 
-const LOTTO_API = 'https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  const round = req.query.round;
-  if (!round || isNaN(parseInt(round))) {
+  const round = parseInt(req.query.round);
+  if (!round || isNaN(round)) {
     return res.status(400).json({ error: 'round 파라미터가 필요합니다' });
   }
 
   try {
-    const upstream = await fetch(`${LOTTO_API}${round}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Referer': 'https://www.dhlottery.co.kr/gameResult.do?method=byWin',
-      },
-    });
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/lotto_draws?select=*&round=eq.${round}`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      }
+    );
 
-    const text = await upstream.text();
-    if (!upstream.ok) return res.status(502).json({ error: '동행복권 서버 오류' });
+    const data = await response.json();
+    if (!data.length) return res.status(404).json({ error: '해당 회차 없음', round });
 
-    let d;
-    try { d = JSON.parse(text); } catch(e) {
-      return res.status(502).json({ error: 'JSON 파싱 실패', preview: text.slice(0, 200) });
-    }
-
-    if (d.returnValue !== 'success') {
-      return res.status(404).json({ error: '존재하지 않는 회차', round: parseInt(round) });
-    }
-
+    const d = data[0];
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=600');
     return res.status(200).json({
-      round: d.drwNo,
-      date: d.drwNoDate,
-      nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
-      bonus: d.bnusNo,
-      prize1: d.firstWinamnt,
-      cnt1: d.firstPrzwnerCo,
+      round: d.round,
+      date: d.draw_date,
+      nums: [d.num1, d.num2, d.num3, d.num4, d.num5, d.num6],
+      bonus: d.bonus,
+      prize1: d.prize1,
+      cnt1: d.winners1,
     });
-  } catch(e) {
-    return res.status(500).json({ error: '프록시 오류', detail: e.message });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 }

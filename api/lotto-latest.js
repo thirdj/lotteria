@@ -1,6 +1,4 @@
 // api/lotto-latest.js
-// 최신 회차를 빠르게 찾아서 반환
-// 날짜 계산으로 예상 회차를 구한 뒤 병렬 요청 → 타임아웃 없음
 
 export const config = {
   runtime: 'edge',
@@ -12,15 +10,26 @@ async function fetchRound(round) {
   try {
     const res = await fetch(`${LOTTO_API}${round}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LottoProxy/1.0)',
-        'Referer': 'https://www.dhlottery.co.kr',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+        'Referer': 'https://www.dhlottery.co.kr/gameResult.do?method=byWin',
       },
-      signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return null;
-    const d = await res.json();
-    if (d.returnValue !== 'success') return null;
+
+    const text = await res.text();
+
+    if (!res.ok) return { error: `HTTP ${res.status}`, round };
+
+    let d;
+    try { d = JSON.parse(text); } catch(e) {
+      return { error: 'JSON parse fail', preview: text.slice(0, 100), round };
+    }
+
+    if (d.returnValue !== 'success') return { error: 'returnValue: ' + d.returnValue, round };
+
     return {
+      ok: true,
       latestRound: d.drwNo,
       date: d.drwNoDate,
       nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
@@ -28,8 +37,8 @@ async function fetchRound(round) {
       prize1: d.firstWinamnt,
       cnt1: d.firstPrzwnerCo,
     };
-  } catch {
-    return null;
+  } catch(e) {
+    return { error: e.message, round };
   }
 }
 
@@ -44,7 +53,6 @@ export default async function handler(req) {
   const weeksDiff = Math.floor((now - startDate) / (7 * 24 * 60 * 60 * 1000));
   const estimatedRound = weeksDiff + 1;
 
-  // 예상 회차 ±3 범위를 동시에 병렬 요청
   const candidates = [
     estimatedRound + 2,
     estimatedRound + 1,
@@ -55,13 +63,18 @@ export default async function handler(req) {
   ];
 
   const results = await Promise.all(candidates.map(r => fetchRound(r)));
-  const valid = results.filter(Boolean).sort((a, b) => b.latestRound - a.latestRound);
+  const valid = results.filter(r => r && r.ok).sort((a, b) => b.latestRound - a.latestRound);
 
   if (!valid.length) {
-    return jsonResponse({ error: '최신 회차를 찾을 수 없습니다' }, 500);
+    return jsonResponse({
+      error: '최신 회차를 찾을 수 없습니다',
+      estimatedRound,
+      debug: results,
+    }, 500);
   }
 
-  return jsonResponse(valid[0], 200, 1800);
+  const { ok, ...data } = valid[0];
+  return jsonResponse(data, 200, 1800);
 }
 
 function corsHeaders() {

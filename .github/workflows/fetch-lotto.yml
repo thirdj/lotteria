@@ -1,0 +1,41 @@
+name: 로또 데이터 자동 수집
+
+on:
+  # 매주 토요일 밤 21:00 KST (12:00 UTC) 자동 실행
+  schedule:
+    - cron: '0 12 * * 6'
+  # 수동 실행도 가능 (GitHub Actions 탭에서 Run workflow 버튼)
+  workflow_dispatch:
+    inputs:
+      from_round:
+        description: '시작 회차 (비우면 최신 1회차만)'
+        required: false
+        default: ''
+      to_round:
+        description: '끝 회차 (비우면 최신 1회차만)'
+        required: false
+        default: ''
+
+jobs:
+  fetch-lotto:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치
+        run: npm install node-fetch @supabase/supabase-js
+
+      - name: 로또 데이터 수집 및 저장
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          FROM_ROUND: ${{ github.event.inputs.from_round }}
+          TO_ROUND: ${{ github.event.inputs.to_round }}
+        run: node scripts/fetch-lotto.js

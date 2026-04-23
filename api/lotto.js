@@ -1,88 +1,49 @@
 // api/lotto.js
-// Vercel Serverless Function
-// 동행복권 API를 서버 사이드에서 호출 → CORS 문제 해결
-
-export const config = {
-  runtime: 'edge', // Edge Runtime: 전세계 빠른 응답
-};
+// Node.js Runtime
 
 const LOTTO_API = 'https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=';
-const CACHE_TTL = 3600; // 1시간 캐시 (초)
 
-export default async function handler(req) {
-  // OPTIONS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(),
-    });
-  }
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
-  const { searchParams } = new URL(req.url);
-  const round = searchParams.get('round');
-
+  const round = req.query.round;
   if (!round || isNaN(parseInt(round))) {
-    return jsonResponse({ error: 'round 파라미터가 필요합니다' }, 400);
+    return res.status(400).json({ error: 'round 파라미터가 필요합니다' });
   }
 
   try {
     const upstream = await fetch(`${LOTTO_API}${round}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LottoProxy/1.0)',
-        'Referer': 'https://www.dhlottery.co.kr',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Referer': 'https://www.dhlottery.co.kr/gameResult.do?method=byWin',
       },
     });
 
-    if (!upstream.ok) {
-      return jsonResponse({ error: '동행복권 서버 오류', status: upstream.status }, 502);
+    const text = await upstream.text();
+    if (!upstream.ok) return res.status(502).json({ error: '동행복권 서버 오류' });
+
+    let d;
+    try { d = JSON.parse(text); } catch(e) {
+      return res.status(502).json({ error: 'JSON 파싱 실패', preview: text.slice(0, 200) });
     }
 
-    const data = await upstream.json();
-
-    if (data.returnValue !== 'success') {
-      return jsonResponse({ error: '존재하지 않는 회차', round: parseInt(round) }, 404);
+    if (d.returnValue !== 'success') {
+      return res.status(404).json({ error: '존재하지 않는 회차', round: parseInt(round) });
     }
 
-    const result = {
-      round: data.drwNo,
-      date: data.drwNoDate,
-      nums: [
-        data.drwtNo1, data.drwtNo2, data.drwtNo3,
-        data.drwtNo4, data.drwtNo5, data.drwtNo6,
-      ],
-      bonus: data.bnusNo,
-      prize1: data.firstWinamnt,
-      cnt1: data.firstPrzwnerCo,
-    };
-
-    return jsonResponse(result, 200, CACHE_TTL);
-  } catch (err) {
-    return jsonResponse({ error: '프록시 오류', detail: err.message }, 500);
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=600');
+    return res.status(200).json({
+      round: d.drwNo,
+      date: d.drwNoDate,
+      nums: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
+      bonus: d.bnusNo,
+      prize1: d.firstWinamnt,
+      cnt1: d.firstPrzwnerCo,
+    });
+  } catch(e) {
+    return res.status(500).json({ error: '프록시 오류', detail: e.message });
   }
-}
-
-// ── helpers ──────────────────────────────
-
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-}
-
-function jsonResponse(body, status = 200, cacheTtl = 0) {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...corsHeaders(),
-  };
-
-  if (cacheTtl > 0) {
-    // Vercel Edge Cache + 브라우저 캐시
-    headers['Cache-Control'] = `public, s-maxage=${cacheTtl}, stale-while-revalidate=600`;
-  } else {
-    headers['Cache-Control'] = 'no-store';
-  }
-
-  return new Response(JSON.stringify(body), { status, headers });
 }

@@ -1,6 +1,6 @@
 // scripts/fetch-lotto-playwright.mjs
 // Playwright headless Chrome으로 동행복권 크롤링
-// 동적 렌더링 후 .result-ball DOM에서 번호 추출
+// .result-ballBox 안에서 figure 기준으로 당첨번호/보너스 분리
 
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
@@ -36,43 +36,57 @@ async function fetchRoundWithBrowser(page, round) {
       { waitUntil: 'networkidle', timeout: 20000 }
     );
 
-    // JS 렌더링 완료 대기 — .result-ball 이 생길 때까지
-    await page.waitForSelector('.result-ball', { timeout: 10000 }).catch(() => {});
+    // .result-ballBox 렌더링 대기
+    await page.waitForSelector('.result-ballBox', { timeout: 10000 }).catch(() => {});
 
     const result = await page.evaluate(() => {
-      // .result-ball 클래스 div에서 번호 추출
-      const balls = Array.from(document.querySelectorAll('.result-ball'));
-      const nums = balls.map(b => parseInt(b.textContent?.trim() || '0')).filter(n => n >= 1 && n <= 45);
+      // 첫 번째 .result-ballBox (최신 회차 당첨번호)
+      const ballBox = document.querySelector('.result-ballBox');
+      if (!ballBox) return { error: '.result-ballBox 없음' };
+
+      // figure 기준으로 앞=당첨번호, 뒤=보너스
+      const children = Array.from(ballBox.children);
+      const figureIdx = children.findIndex(el => el.tagName === 'FIGURE');
+
+      if (figureIdx === -1) return { error: 'figure 태그 없음' };
+
+      // figure 앞의 .result-ball들 = 당첨번호
+      const numBalls = children
+        .slice(0, figureIdx)
+        .filter(el => el.classList.contains('result-ball'));
+
+      // figure 뒤의 .result-ball = 보너스
+      const bonusBalls = children
+        .slice(figureIdx + 1)
+        .filter(el => el.classList.contains('result-ball'));
+
+      const nums = numBalls.map(b => parseInt(b.textContent?.trim() || '0')).filter(n => n >= 1 && n <= 45);
+      const bonus = bonusBalls.length > 0 ? parseInt(bonusBalls[bonusBalls.length - 1].textContent?.trim() || '0') : 0;
 
       // 날짜 추출
-      const dateEl = document.querySelector('.result-date, .drwDate, [class*="date"]');
-      const dateText = dateEl?.textContent || document.body.innerText;
-      const dateMatch = dateText.match(/(\d{4})[.\-년\s]+(\d{1,2})[.\-월\s]+(\d{1,2})/);
-
-      // 1등 당첨금 추출
-      const prizeEl = document.querySelector('[class*="prize"], [class*="amount"], [class*="winamnt"]');
-      const prizeText = prizeEl?.textContent?.replace(/[^0-9]/g, '') || '';
+      const dateEl = document.querySelector('.result-date, .drwDate, [class*="result-txt"] [class*="date"]');
+      const bodyText = document.body.innerText;
+      const dateMatch = bodyText.match(/(\d{4})[.\-년\s]*(\d{1,2})[.\-월\s]*(\d{1,2})/);
 
       return {
         nums,
+        bonus,
         dateMatch: dateMatch ? [dateMatch[1], dateMatch[2], dateMatch[3]] : null,
-        prizeText,
-        ballCount: balls.length,
-        url: window.location.href,
+        figureIdx,
+        numCount: nums.length,
       };
     });
 
-    // 번호가 7개 이상 있어야 함 (6개 + 보너스 1개)
-    if (result.nums.length < 7) {
+    if (result.error) return { error: result.error, round };
+
+    if (result.nums.length !== 6 || !result.bonus) {
       return {
-        error: `번호 추출 실패 (ball 개수: ${result.ballCount}, nums: ${JSON.stringify(result.nums)})`,
+        error: `번호 개수 오류 (nums: ${JSON.stringify(result.nums)}, bonus: ${result.bonus})`,
         round,
-        url: result.url,
       };
     }
 
-    const sorted = result.nums.slice(0, 6).sort((a, b) => a - b);
-    const bonus = result.nums[6];
+    const sorted = [...result.nums].sort((a, b) => a - b);
 
     // 날짜 계산
     let drawDate;
@@ -91,8 +105,8 @@ async function fetchRoundWithBrowser(page, round) {
       draw_date: drawDate,
       num1: sorted[0], num2: sorted[1], num3: sorted[2],
       num4: sorted[3], num5: sorted[4], num6: sorted[5],
-      bonus,
-      prize1: result.prizeText ? parseInt(result.prizeText) : null,
+      bonus: result.bonus,
+      prize1: null,
       winners1: null,
     };
   } catch (e) {
@@ -158,7 +172,6 @@ async function main() {
     if (!result.ok) {
       console.log(` ❌ ${result.error}`);
       failed++;
-      // 3번 연속 실패 시 페이지 리셋
       if (failed % 3 === 0) {
         await page.goto('https://www.dhlottery.co.kr/lt645/result', { timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(2000);
